@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -15,6 +16,25 @@ type Entry struct {
 	Title    string
 	InfoURL  string
 	ZipURL   string
+}
+
+func findAuthorAndZIP(siteURL string) (string, string) {
+	doc, err := goquery.NewDocument(siteURL)
+	if err != nil {
+		return "", ""
+	}
+
+	author := doc.Find("table[summary='作家データ'] tr:nth-child(2) td:nth-child(2)").Text()
+
+	zipURL := ""
+	doc.Find("table.download a").Each(func(n int, elem *goquery.Selection) {
+		href := elem.AttrOr("href", "")
+		if strings.HasSuffix(href, ".zip") {
+			zipURL = href
+		}
+	})
+
+	return author, zipURL
 }
 
 func findEntries(url string) ([]Entry, error) {
@@ -31,8 +51,10 @@ func findEntries(url string) ([]Entry, error) {
 		if len(token) != 3 {
 			return
 		}
-		pageURL := fmt.Sprintf("https://www.aozora.gr.jp/cards/%s/cards%s.html", token[1], token[2])
-		println(pageURL)
+		pageURL := fmt.Sprintf("https://www.aozora.gr.jp/cards/%s/card%s.html", token[1], token[2])
+		_, zipURL := findAuthorAndZIP(pageURL)
+
+		println(zipURL)
 	})
 
 	return nil, nil
