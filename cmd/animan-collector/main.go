@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -42,7 +44,7 @@ func scraping() ([]CsvRow, error) {
 	texts := append(introAreaTexts, mainAreaTexts...)
 	csvData := formatTextsToCSV(texts)
 
-	fmt.Println(pageTitle.Text(), csvData, path)
+	fmt.Println(pageTitle.Text(), csvData)
 	return nil, nil
 }
 
@@ -55,8 +57,10 @@ func findThreadsText(doc *goquery.Document, isMainArea bool) []string {
 	}
 
 	doc.Find(fmt.Sprintf("%s > .res .t_b", section)).Each(func(i int, s *goquery.Selection) {
-		fmt.Println(s.Text())
-		texts = append(texts, s.Text())
+		// Remove empty lines
+		if utf8.RuneCountInString(strings.TrimSpace(s.Text())) != 0 {
+			texts = append(texts, s.Text())
+		}
 	})
 
 	return texts
