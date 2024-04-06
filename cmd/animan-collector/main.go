@@ -36,16 +36,18 @@ func scraping() ([]CsvRow, error) {
 		return nil, err
 	}
 
-	pageTitle := doc.Find("article > h1").First()
+	// pageTitle := doc.Find("article > h1").First()
 
 	introAreaTexts := findThreadsText(doc, false)
 	mainAreaTexts := findThreadsText(doc, true)
+	commentAreaText := findCommentAreaText(doc)
 
 	texts := append(introAreaTexts, mainAreaTexts...)
+	texts = append(texts, commentAreaText...)
+
 	csvData := formatTextsToCSV(texts)
 
-	fmt.Println(pageTitle.Text(), csvData)
-	return nil, nil
+	return csvData, nil
 }
 
 func findThreadsText(doc *goquery.Document, isMainArea bool) []string {
@@ -60,6 +62,21 @@ func findThreadsText(doc *goquery.Document, isMainArea bool) []string {
 		// Remove empty lines
 		if utf8.RuneCountInString(strings.TrimSpace(s.Text())) != 0 {
 			texts = append(texts, s.Text())
+		}
+	})
+
+	return texts
+}
+
+func findCommentAreaText(doc *goquery.Document) []string {
+	texts := []string{}
+
+	doc.Find(fmt.Sprintln("#commentarea > .commentwrap > .commentbody")).Each(func(i int, s *goquery.Selection) {
+		// Remove empty lines
+		if utf8.RuneCountInString(strings.TrimSpace(s.Text())) != 0 {
+			// Replace newline characters with spaces
+			text := strings.ReplaceAll(s.Text(), "\n", " ")
+			texts = append(texts, text)
 		}
 	})
 
