@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/csv"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"unicode/utf8"
@@ -16,16 +18,19 @@ type CsvRow struct {
 }
 
 func main() {
-	_, err := scraping()
+	csvData, title, err := scraping()
+
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+
+	generateCSV(csvData, title)
 }
 
-func scraping() ([]CsvRow, error) {
+func scraping() (csvData []CsvRow, title string, err error) {
 	if len(os.Args) != 2 {
-		return nil, errors.New("please specify the ID of the site to scrape")
+		return nil, "", errors.New("please specify the ID of the site to scrape")
 	}
 
 	threadID := os.Args[1]
@@ -33,21 +38,45 @@ func scraping() ([]CsvRow, error) {
 
 	doc, err := goquery.NewDocument(path)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	// pageTitle := doc.Find("article > h1").First()
+	pageTitle := doc.Find("article > h1").First().Text()
 
 	introAreaTexts := findThreadsText(doc, false)
 	mainAreaTexts := findThreadsText(doc, true)
-	commentAreaText := findCommentAreaText(doc)
+	commentAreaTexts := findCommentAreaText(doc)
 
 	texts := append(introAreaTexts, mainAreaTexts...)
-	texts = append(texts, commentAreaText...)
+	texts = append(texts, commentAreaTexts...)
 
-	csvData := formatTextsToCSV(texts)
+	csvData = formatTextsToCSV(texts)
 
-	return csvData, nil
+	return csvData, pageTitle, nil
+}
+
+func generateCSV(csvData []CsvRow, title string) {
+	records := [][]string{}
+
+	file, err := os.Create(fmt.Sprintf("csv/%s.csv", title))
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	cw := csv.NewWriter(file)
+
+	for _, r := range csvData {
+		records = append(records, []string{fmt.Sprint(r.VoiceID), r.Text})
+	}
+
+	for _, r := range records {
+		if err := cw.Write(r); err != nil {
+			log.Fatalln("error writing record to csv:", err)
+		}
+	}
+
+	defer cw.Flush()
 }
 
 func findThreadsText(doc *goquery.Document, isMainArea bool) []string {
